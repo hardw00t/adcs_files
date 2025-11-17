@@ -10,7 +10,10 @@ A comprehensive collection of tools for Active Directory Certificate Services (A
 
 - [Overview](#overview)
 - [ADCS Attack Techniques](#adcs-attack-techniques)
+- [📖 Detailed Attack Guides & Documentation](#-detailed-attack-guides--documentation)
 - [Tools Included](#tools-included)
+- [🤖 Automation Scripts](#-automation-scripts)
+- [🧪 Lab Environment](#-lab-environment)
 - [Installation & Setup](#installation--setup)
 - [Usage Examples](#usage-examples)
 - [Attack Chain Workflow](#attack-chain-workflow)
@@ -44,6 +47,55 @@ The "Certified Pre-Owned" research identified multiple privilege escalation tech
 - **ESC9-ESC16**: Additional advanced techniques
 
 **Note**: As of February 2025, StrongCertificateBindingEnforcement will default to Full Enforcement mode, affecting some attack vectors.
+
+## 📖 Detailed Attack Guides & Documentation
+
+Comprehensive exploitation guides for each ESC technique with step-by-step instructions, detection strategies, and remediation:
+
+### [📚 Documentation Hub](docs/README.md)
+
+**Attack Exploitation Guides**:
+- **[ESC1 Guide](docs/ESC1_Guide.md)** - Misconfigured certificate templates with arbitrary SAN
+  - Enumeration with Certify, Certipy, PowerShell
+  - Certificate request and authentication procedures
+  - Detection: Event 4887 with SAN mismatches, Splunk/KQL queries, Sigma rules
+  - Remediation: Remove ENROLLEE_SUPPLIES_SUBJECT, restrict enrollment
+
+- **[ESC2 Guide](docs/ESC2_Guide.md)** - Any Purpose EKU and Subordinate CA exploitation
+  - Three variants: Any Purpose, No EKU, Subordinate CA
+  - ForgeCert usage for rogue CA attacks
+  - Detection: Any Purpose certificate issuance monitoring
+  - Remediation: Replace with specific EKUs, restrict SubCA template
+
+- **[ESC3 Guide](docs/ESC3_Guide.md)** - Enrollment Agent template abuse
+  - Two-step attack: Agent certificate → Target certificate
+  - On-behalf-of enrollment exploitation
+  - Detection: Event 4887 with enrollment agent patterns
+  - Remediation: Configure enrollment agent restrictions
+
+- **[ESC4 Guide](docs/ESC4_Guide.md)** - Certificate template ACL modification
+  - GenericAll, WriteDacl, WriteOwner exploitation
+  - Template property modification techniques
+  - Detection: Event 5136 (AD object modification)
+  - Remediation: Harden template ACLs, remove write permissions
+
+- **[ESC6 & ESC8 Guide](docs/ESC6_ESC8_Guide.md)** - CA configuration and NTLM relay
+  - **ESC6**: EDITF_ATTRIBUTESUBJECTALTNAME2 flag abuse
+  - **ESC8**: NTLM relay to web enrollment endpoints
+  - ntlmrelayx + PetitPotam attack chains
+  - Detection: SAN in requests, NTLM relay patterns
+  - Remediation: Disable ESC6 flag, enable EPA, HTTPS-only
+
+**Defense & Detection**:
+- **[Detection Playbook](docs/Detection_Playbook.md)** - Comprehensive defense strategies
+  - Event log monitoring (4886, 4887, 4768, 5136)
+  - SIEM queries: Splunk SPL, Microsoft Sentinel KQL
+  - Sigma rules for each ESC technique
+  - Behavioral analytics and anomaly detection
+  - Incident response procedures
+  - Automated hunting scripts
+
+Each guide includes real-world exploitation examples, complete detection coverage, and hardening recommendations.
 
 ## 🛠️ Tools Included
 
@@ -196,6 +248,69 @@ ForgeCert.exe --CaCertPath ca.pfx --CaCertPassword password --Subject "CN=User" 
 
 #### GruntHTTP.ps1
 **Description**: PowerShell script for reflective .NET assembly loading. Executes payloads in-memory without touching disk.
+
+## 🤖 Automation Scripts
+
+Custom PowerShell scripts for automated ADCS enumeration and exploitation:
+
+### Enumeration
+**[Enumerate-ADCS.ps1](scripts/enumeration/Enumerate-ADCS.ps1)**
+- Automated vulnerability scanner for ESC1-ESC6
+- HTML report generation with severity classifications
+- Checks vulnerable templates, CA configurations, ACLs
+- Current user context enumeration
+
+```powershell
+# Run full scan
+.\Enumerate-ADCS.ps1 -Verbose -OutputFile report.html
+
+# Check specific techniques
+.\Enumerate-ADCS.ps1 -CheckESC1 -CheckESC4
+```
+
+### Exploitation
+**[Invoke-ADCSAttack.ps1](scripts/exploitation/Invoke-ADCSAttack.ps1)**
+- Automated attack framework for ESC1, ESC2, ESC3, ESC6
+- Auto-detects CA infrastructure
+- Handles certificate conversion (PEM → PFX)
+- Optional automatic Rubeus authentication
+
+```powershell
+# ESC1 attack
+.\Invoke-ADCSAttack.ps1 -AttackType ESC1 -Template VulnerableTemplate -Target Administrator -AutoAuthenticate
+
+# ESC3 enrollment agent abuse
+.\Invoke-ADCSAttack.ps1 -AttackType ESC3 -EnrollmentAgentTemplate AgentTemplate -Template UserAuthTemplate -Target Administrator
+```
+
+## 🧪 Lab Environment
+
+**[Lab Setup Guide](lab/Lab_Setup_Guide.md)** - Complete vulnerable ADCS lab configuration:
+
+**Infrastructure**:
+- Domain Controller with AD CS installation
+- Certificate Authority configuration
+- Web enrollment setup (ESC8)
+- Attack workstation setup (Windows + Linux)
+
+**Vulnerable Templates**:
+- ESC1: ENROLLEE_SUPPLIES_SUBJECT enabled
+- ESC2: Any Purpose EKU configured
+- ESC3: Enrollment Agent with target templates
+- ESC4: Weak ACLs (GenericAll for Domain Users)
+- ESC6: EDITF_ATTRIBUTESUBJECTALTNAME2 flag enabled
+- ESC8: Web enrollment without EPA
+
+**Training Scenarios**:
+- Privilege escalation exercises
+- Detection rule validation
+- Blue team training
+- Red team operations practice
+
+```powershell
+# Quick lab verification
+.\Certify.exe find /vulnerable  # Should find all ESC1-6 vulnerabilities
+```
 
 ## 📦 Installation & Setup
 
